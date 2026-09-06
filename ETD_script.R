@@ -115,6 +115,23 @@ evaluer_faiblesse_croupier <- function(valeur_croupier) {
   return(cartes_cibles_restantes / cartes_totales_restantes)
 }
 
+evaluer_force_croupier <- function(valeur_croupier) {
+  # Probabilité que le croupier atteigne une main forte (17-21) avec sa prochaine carte
+  cartes_totales_restantes <- sum(g_inventaire_sabot)
+  if (cartes_totales_restantes == 0) return(0.0)
+  
+  cible_min <- max(2, 17 - valeur_croupier)
+  cible_max <- min(11, 21 - valeur_croupier)
+  
+  if (cible_min > cible_max) return(0.0)
+  
+  valeurs_cibles <- as.character(cible_min:cible_max)
+  valeurs_cibles <- valeurs_cibles[valeurs_cibles %in% names(g_inventaire_sabot)]
+  cartes_cibles_restantes <- sum(g_inventaire_sabot[valeurs_cibles])
+  
+  return(cartes_cibles_restantes / cartes_totales_restantes)
+}
+
 # ------------------------------------------------------------------------------
 # 5. FONCTION PRINCIPALE DE DÉCISION
 # ------------------------------------------------------------------------------
@@ -150,6 +167,7 @@ getDecision <- function(main_joueur, main_croupier, id_sabot) {
   
   risque_joueur <- calculer_risque_joueur(score_actuel, est_souple)
   faiblesse_croupier <- evaluer_faiblesse_croupier(valeur_croupier)
+  force_croupier <- evaluer_force_croupier(valeur_croupier)
   
   # 5. Logique de décision algorithmique
   
@@ -158,7 +176,10 @@ getDecision <- function(main_joueur, main_croupier, id_sabot) {
   
   # Traitement des mains souples (immunisées au Bust immédiat)
   if (est_souple) {
-    if (score_actuel == 18 && faiblesse_croupier > 0.40) return("S")
+    if (score_actuel == 18) {
+      # Face à un croupier très fort (9, 10, As), un 18 souple n'est souvent pas suffisant
+      if (force_croupier > 0.50) return("H") else return("S")
+    }
     return("H") 
   }
   
@@ -166,12 +187,13 @@ getDecision <- function(main_joueur, main_croupier, id_sabot) {
   if (score_actuel >= 17) return("S")
   
   # Définition dynamique du seuil de tolérance au risque
-  # Le True Count agit comme modificateur : un sabot riche en cartes fortes abaisse la tolérance
-  seuil_risque_acceptable <- 0.50 - (vrai_compte * 0.05)
+  # Formule combinant la force du croupier (qui nous pousse à prendre des risques)
+  # et sa faiblesse (qui nous incite à le laisser sauter).
+  seuil_risque_acceptable <- 0.45 + (force_croupier * 0.55) - (faiblesse_croupier * 0.30)
   
-  if (faiblesse_croupier > 0.40) {
-    seuil_risque_acceptable <- seuil_risque_acceptable - 0.15
-  }
+  # Ajustement final avec le True Count
+  # Un sabot riche en cartes fortes abaisse la tolérance au risque
+  seuil_risque_acceptable <- seuil_risque_acceptable - (vrai_compte * 0.03)
   
   # Verdict final
   if (risque_joueur > seuil_risque_acceptable) {
