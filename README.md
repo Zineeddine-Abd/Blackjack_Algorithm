@@ -16,7 +16,7 @@ L'agent évolue dans un environnement contraint :
 
 L'algorithme n'utilise aucune matrice de décision fixe. Il repose sur un **moteur probabiliste dynamique** :
 
-1. **Comptage de cartes avancé (Wong Halves) :** L'agent garde en mémoire chaque carte vue pour évaluer si le sabot restant est riche en cartes fortes (avantageux pour le joueur) ou faibles.
+1. **Comptage de cartes (Système High-Low) :** L'agent garde en mémoire chaque carte vue en appliquant la méthode d'Edward Thorp vue en cours (+1 pour les petites cartes, -1 pour les fortes, 0 pour les neutres) pour évaluer si le sabot restant est riche en cartes fortes (avantageux pour le joueur) ou faibles.
 2. **Évaluation du risque de Bust :** Avant chaque décision, le script interroge sa mémoire du sabot pour calculer exactement ses chances de "sauter" (dépasser 21) s'il tire une carte de plus.
 3. **Analyse de la force du croupier :** L'algorithme calcule mathématiquement les chances du croupier d'atteindre un score fort (17-21) du premier coup, ou à l'inverse, sa probabilité de sauter.
 4. **Seuil de risque flottant :** La stratégie s'adapte en temps réel. Face à un croupier très fort (qui montre un 10), l'agent prendra d'énormes risques pour survivre. Face à un croupier faible (qui montre un 6), l'agent adoptera une stratégie très conservatrice et refusera de prendre des risques inutiles.
@@ -34,6 +34,3 @@ Pour tester l'agent, utilisez le script de simulation fourni. Ce script s'occupe
 ```R
 # Depuis R ou la console RStudio
 source("Similateur_VPL.R")
-```
-
-Le script exécutera automatiquement une série de parties de Blackjack (ex: 1 000 parties) et affichera les statistiques de victoire/défaite à la fin de la simulation.
