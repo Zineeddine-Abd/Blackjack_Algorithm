@@ -10,13 +10,14 @@ inventaire_sabot <- c("2" = 24, "3" = 24, "4" = 24, "5" = 24, "6" = 24, "7" = 24
 # Carte -> Valeur
 extraire_valeur <- function(carte_txt) {
   valeur <- gsub("[^0-9JQKA]", "", carte_txt)
-  if (valeur %in% c("J", "Q", "K")) {
-    return(10)
-  } else if (valeur == "A") {
-    return(11)
-  } else {
-    return(as.numeric(valeur))
-  }
+  resultat <- switch(valeur,
+    "J" = 10,
+    "Q" = 10,
+    "K" = 10,
+    "A" = 11,
+    as.numeric(valeur) # Si c'est un chiffre
+  )
+  return(resultat)
 }
 
 # Calcule le total dans la main
@@ -26,10 +27,13 @@ evaluer_main_joueur <- function(valeurs_cartes) {
 
   # Si notre score dépasse 21 et on a un As,
   # l'As passe d'une valeur de 11 a 1
-  while (score > 21 && nb_as > 0) {
-    score <- score - 10
-    nb_as <- nb_as - 1
+  repeat {
+  if (score <= 21 || nb_as == 0) {
+    break
   }
+  score <- score - 10
+  nb_as <- nb_as - 1
+}
 
   # Une main est souple s'il nous reste un As qui vaut encore 11
   est_souple <- (nb_as > 0)
@@ -107,52 +111,51 @@ calculer_bust_joueur <- function(score, est_souple) {
 
 # Proba que le croupier depasse 21
 calculer_bust_croupier <- function(score_croupier, inventaire, a_as_souple = FALSE, profondeur = 0) {
-  if (profondeur > 6) {
+  if (profondeur > 5) {
     return(0.0)
   }
 
   cartes_totales <- sum(inventaire)
-  if (cartes_totales == 0) {
-    return(0.0)
-  }
-
-  # Pas  de risque de bust à partir de 17 parce qu'il s'arréte
-  if (score_croupier >= 17) {
+  # Pas de risque
+  if (cartes_totales == 0 || score_croupier >= 17) {
     return(0.0)
   }
 
   proba_bust_total <- 0.0
 
-  for (nom_val in names(inventaire)) {
-    count <- inventaire[nom_val]
-    if (count == 0) next
+  cartes_presentes <- inventaire[inventaire > 0]
 
+  for (nom_val in names(cartes_presentes)) {
+    count <- cartes_presentes[nom_val]
     valeur <- as.numeric(nom_val)
     proba_carte <- count / cartes_totales
 
     nouveau_score <- score_croupier + valeur
     nouveau_as_souple <- a_as_souple || (valeur == 11)
 
-    # Si le croupier depasse et possède un As a 11 (ancien ou nouveau), il repasse a 1
-    if (nouveau_score > 21 && nouveau_as_souple) {
-      nouveau_score <- nouveau_score - 10
-      nouveau_as_souple <- FALSE
+    if (nouveau_score > 21) {
+      if (nouveau_as_souple) {
+        nouveau_score <- nouveau_score - 10
+        nouveau_as_souple <- FALSE
+      }
     }
 
-    if (nouveau_score > 21) {
-      # bust du croupier
-      proba_bust_total <- proba_bust_total + proba_carte
-    } else if (nouveau_score >= 17) {
-      # Le croupier s'arréte, pas de bust
-      next
-    } else {
+    if (nouveau_score < 17) {
+      # Le croupier retire encire
       inv_reduit <- inventaire
       inv_reduit[nom_val] <- inv_reduit[nom_val] - 1
+      
       proba_bust_suite <- calculer_bust_croupier(
         nouveau_score, inv_reduit, nouveau_as_souple, profondeur + 1
       )
-      proba_bust_total <- proba_bust_total + proba_carte * proba_bust_suite
+      proba_bust_total <- proba_bust_total + (proba_carte * proba_bust_suite)
+
+    } else if (nouveau_score > 21) {
+      # Le croupier a depasser
+      proba_bust_total <- proba_bust_total + proba_carte
+      
     }
+    # Si le score est entre 17 et 21, il ne se passe rien
   }
 
   return(proba_bust_total)
